@@ -9,21 +9,21 @@ from .lib import quantile_ied, CI_estimate
 
 def aleplot_1D_continuous(X, model, feature, grid_size=20, include_CI=True, C=0.95):
     """Compute the accumulated local effect of a numeric continuous feature.
-    
-    This function divides the feature in question into grid_size intervals (bins) 
-    and computes the difference in prediction between the first and last value 
+
+    This function divides the feature in question into grid_size intervals (bins)
+    and computes the difference in prediction between the first and last value
     of each interval and then centers the results.
 
     Arguments:
     X -- A pandas DataFrame to pass to the model for prediction.
     model -- Any python model with a predict method that accepts X as input.
     feature -- String, the name of the column holding the feature being studied.
-    grid_size -- An integer indicating the number of intervals into which the 
+    grid_size -- An integer indicating the number of intervals into which the
     feature range is divided.
-    include_CI -- A boolean, if True the confidence interval 
-    of the effect is returned with the results. 
+    include_CI -- A boolean, if True the confidence interval
+    of the effect is returned with the results.
     C -- A float the confidence level for which to compute the confidence interval
-    
+
     Return: A pandas DataFrame containing for each bin: the size of the sample in it
     and the accumulated centered effect of this bin.
     """
@@ -42,8 +42,12 @@ def aleplot_1D_continuous(X, model, feature, grid_size=20, include_CI=True, C=0.
     X2 = X.copy()
     X1[feature] = [bins[i] for i in bin_codes]
     X2[feature] = [bins[i + 1] for i in bin_codes]
-    y_1 = model.predict(X1).ravel()
-    y_2 = model.predict(X2).ravel()
+    if hasattr(model, 'predict_proba'):
+        y_1 = model.predict_proba(X1)[:, 1].ravel()
+        y_2 = model.predict_proba(X2)[:, 1].ravel()
+    else:
+        y_1 = model.predict(X1).ravel()
+        y_2 = model.predict(X2).ravel()
 
     delta_df = pd.DataFrame({feature: bins[bin_codes + 1], "Delta": y_2 - y_1})
     res_df = delta_df.groupby([feature]).Delta.agg([("eff", "mean"), "size"])
@@ -70,20 +74,20 @@ def aleplot_1D_continuous(X, model, feature, grid_size=20, include_CI=True, C=0.
 
 def aleplot_1D_discrete(X, model, feature, include_CI=True, C=0.95):
     """Compute the accumulated local effect of a numeric discrete feature.
-    
+
     This function computes the difference in prediction when the value of the feature
-    is replaced once with the value before it and once with the value after it, without 
+    is replaced once with the value before it and once with the value after it, without
     the need to divide into interval like the case of aleplot_1D_continuous.
 
     Arguments:
     X -- A pandas DataFrame to pass to the model for prediction.
     model -- Any python model with a predict method that accepts X as input.
     feature -- String, the name of the column holding the feature being studied.
-    include_CI -- A boolean, if True the confidence interval 
-    of the effect is returned with the results. 
+    include_CI -- A boolean, if True the confidence interval
+    of the effect is returned with the results.
     C -- A float the confidence level for which to compute the confidence interval
-    
-    Return: A pandas DataFrame containing for each value of the feature: the size 
+
+    Return: A pandas DataFrame containing for each value of the feature: the size
     of the sample in it and the accumulated centered effect around this value.
     """
 
@@ -143,9 +147,9 @@ def aleplot_1D_discrete(X, model, feature, include_CI=True, C=0.95):
 
 def plot_1D_continuous_eff(res_df, X, fig=None, ax=None):
     """Plot the 1D ALE plot for a continuous feature.
-    
+
     Arguments:
-    res_df -- A pandas DataFrame containing the computed effects 
+    res_df -- A pandas DataFrame containing the computed effects
     (the output of ale_1D_continuous).
     X -- The dataset used to compute the effects.
     fig, ax -- matplotlib figure and axis.
@@ -175,9 +179,9 @@ def plot_1D_continuous_eff(res_df, X, fig=None, ax=None):
     )
 
     if fig is None and ax is None:
-        fig, ax = plt.subplots(figsize=(8, 4))
+        fig, ax = plt.subplots(figsize=(20, 20))
     ax.plot(res_df[["eff"]])
-    tr = mtrans.offset_copy(ax.transData, fig=fig, x=0.0, y=-5, units="points")
+    tr = mtrans.offset_copy(ax.transData, fig=fig, x=0.0, y=-4, units="points")
     ax.plot(
         rug,
         [res_df.drop("size", axis=1).min().min()] * len(rug),
@@ -207,7 +211,7 @@ def plot_1D_continuous_eff(res_df, X, fig=None, ax=None):
 
 def plot_1D_discrete_eff(res_df, X, fig=None, ax=None):
     """Plot the 1D ALE plot for a discrete feature.
-    
+
     Arguments:
     res_df -- A pandas DataFrame with the computed effects
     (the output of ale_1D_discrete).
